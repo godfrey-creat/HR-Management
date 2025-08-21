@@ -1,0 +1,638 @@
+{% extends "base.html" %}
+
+{% block title %}Employees - People360{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-users me-2"></i>Employee Management
+            </h1>
+            <p class="text-muted mb-0">Manage your workforce</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
+                <i class="fas fa-user-plus me-2"></i>Add Employee
+            </button>
+            <div class="btn-group ms-2">
+                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="fas fa-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ url_for('api.export_employees') }}">
+                        <i class="fas fa-file-csv me-2"></i>Export to CSV
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportToPDF()">
+                        <i class="fas fa-file-pdf me-2"></i>Export to PDF
+                    </a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="searchInput" placeholder="Search employees...">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Department</label>
+                    <select class="form-select" id="departmentFilter">
+                        <option value="">All Departments</option>
+                        <option value="HR">HR</option>
+                        <option value="IT">IT</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Sales">Sales</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Operations">Operations</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="on_leave">On Leave</option>
+                        <option value="terminated">Terminated</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Employment Type</label>
+                    <select class="form-select" id="typeFilter">
+                        <option value="">All Types</option>
+                        <option value="full_time">Full Time</option>
+                        <option value="part_time">Part Time</option>
+                        <option value="contract">Contract</option>
+                        <option value="intern">Intern</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary me-2" onclick="clearFilters()">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employees Table -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Employees List</h6>
+                <div class="d-flex align-items-center">
+                    <span class="me-3 text-muted" id="employeeCount">Total: 0 employees</span>
+                    <div class="btn-group" role="group">
+                        <input type="checkbox" class="btn-check" id="selectAll">
+                        <label class="btn btn-outline-secondary btn-sm" for="selectAll">
+                            <i class="fas fa-check-square"></i>
+                        </label>
+                        <button class="btn btn-outline-danger btn-sm" id="bulkDeleteBtn" disabled>
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="employeesTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="5%">
+                                <input type="checkbox" id="selectAllHeader">
+                            </th>
+                            <th width="15%">Employee ID</th>
+                            <th width="20%">Name</th>
+                            <th width="15%">Email</th>
+                            <th width="10%">Department</th>
+                            <th width="10%">Position</th>
+                            <th width="10%">Status</th>
+                            <th width="10%">Hire Date</th>
+                            <th width="5%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeesTableBody">
+                        <!-- Dynamic content loaded here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Loading State -->
+            <div class="d-flex justify-content-center p-4" id="loadingState">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+            
+            <!-- Empty State -->
+            <div class="text-center p-5" id="emptyState" style="display: none;">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <h5>No Employees Found</h5>
+                <p class="text-muted">Get started by adding your first employee.</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
+                    <i class="fas fa-user-plus me-2"></i>Add Employee
+                </button>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="card-footer">
+            <nav aria-label="Employees pagination">
+                <ul class="pagination pagination-sm mb-0 justify-content-between align-items-center">
+                    <li>
+                        <span class="text-muted small" id="paginationInfo">Showing 0 to 0 of 0 entries</span>
+                    </li>
+                    <li>
+                        <ul class="pagination pagination-sm mb-0" id="paginationControls">
+                            <!-- Pagination controls will be inserted here -->
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Add Employee Modal -->
+<div class="modal fade" id="addEmployeeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus me-2"></i>Add New Employee
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addEmployeeForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">First Name *</label>
+                            <input type="text" class="form-control" name="first_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Last Name *</label>
+                            <input type="text" class="form-control" name="last_name" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" name="email" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phone</label>
+                            <input type="tel" class="form-control" name="phone">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" name="department">
+                                <option value="">Select Department</option>
+                                <option value="HR">HR</option>
+                                <option value="IT">IT</option>
+                                <option value="Finance">Finance</option>
+                                <option value="Sales">Sales</option>
+                                <option value="Marketing">Marketing</option>
+                                <option value="Operations">Operations</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Position *</label>
+                            <input type="text" class="form-control" name="position" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Hire Date</label>
+                            <input type="date" class="form-control" name="hire_date">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Employment Type</label>
+                            <select class="form-select" name="employment_type">
+                                <option value="full_time">Full Time</option>
+                                <option value="part_time">Part Time</option>
+                                <option value="contract">Contract</option>
+                                <option value="intern">Intern</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Salary</label>
+                            <input type="number" class="form-control" name="salary" step="0.01">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Save Employee
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Employee Modal -->
+<div class="modal fade" id="editEmployeeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-edit me-2"></i>Edit Employee
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editEmployeeForm">
+                <div class="modal-body">
+                    <input type="hidden" name="employee_id" id="editEmployeeId">
+                    <!-- Same form fields as add modal -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">First Name *</label>
+                            <input type="text" class="form-control" name="first_name" id="editFirstName" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Last Name *</label>
+                            <input type="text" class="form-control" name="last_name" id="editLastName" required>
+                        </div>
+                    </div>
+                    <!-- Additional fields similar to add modal -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Update Employee
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class EmployeeManager {
+    constructor() {
+        this.currentPage = 1;
+        this.itemsPerPage = 20;
+        this.totalItems = 0;
+        this.filters = {};
+        this.selectedEmployees = new Set();
+        
+        this.initializeEventListeners();
+        this.loadEmployees();
+    }
+    
+    initializeEventListeners() {
+        // Search input
+        document.getElementById('searchInput').addEventListener('input', 
+            this.debounce(() => this.handleFilterChange(), 500));
+        
+        // Filter dropdowns
+        ['departmentFilter', 'statusFilter', 'typeFilter'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => this.handleFilterChange());
+        });
+        
+        // Form submissions
+        document.getElementById('addEmployeeForm').addEventListener('submit', (e) => this.handleAddEmployee(e));
+        document.getElementById('editEmployeeForm').addEventListener('submit', (e) => this.handleEditEmployee(e));
+        
+        // Select all functionality
+        document.getElementById('selectAllHeader').addEventListener('change', (e) => this.handleSelectAll(e));
+        document.getElementById('bulkDeleteBtn').addEventListener('click', () => this.handleBulkDelete());
+    }
+    
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+    
+    handleFilterChange() {
+        this.filters = {
+            search: document.getElementById('searchInput').value,
+            department: document.getElementById('departmentFilter').value,
+            status: document.getElementById('statusFilter').value,
+            employment_type: document.getElementById('typeFilter').value
+        };
+        this.currentPage = 1;
+        this.loadEmployees();
+    }
+    
+    async loadEmployees() {
+        try {
+            document.getElementById('loadingState').style.display = 'flex';
+            document.getElementById('emptyState').style.display = 'none';
+            
+            const params = new URLSearchParams({
+                page: this.currentPage,
+                per_page: this.itemsPerPage,
+                ...this.filters
+            });
+            
+            const response = await fetch(`/api/employees?${params}`);
+            const data = await response.json();
+            
+            this.totalItems = data.total;
+            this.renderEmployees(data.items);
+            this.renderPagination(data);
+            
+            document.getElementById('employeeCount').textContent = `Total: ${data.total} employees`;
+            document.getElementById('loadingState').style.display = 'none';
+            
+            if (data.items.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+            }
+            
+        } catch (error) {
+            console.error('Error loading employees:', error);
+            this.showToast('Error loading employees', 'error');
+            document.getElementById('loadingState').style.display = 'none';
+        }
+    }
+    
+    renderEmployees(employees) {
+        const tbody = document.getElementById('employeesTableBody');
+        
+        if (employees.length === 0) {
+            tbody.innerHTML = '';
+            return;
+        }
+        
+        tbody.innerHTML = employees.map(emp => `
+            <tr data-employee-id="${emp.id}">
+                <td>
+                    <input type="checkbox" class="employee-checkbox" value="${emp.id}">
+                </td>
+                <td>
+                    <span class="fw-bold">${emp.employee_id}</span>
+                </td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-circle me-2 bg-primary text-white">
+                            ${emp.first_name[0]}${emp.last_name[0]}
+                        </div>
+                        <div>
+                            <div class="fw-semibold">${emp.first_name} ${emp.last_name}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>${emp.email}</td>
+                <td>
+                    <span class="badge bg-secondary">${emp.department || 'Unassigned'}</span>
+                </td>
+                <td>${emp.position}</td>
+                <td>
+                    <span class="badge bg-${this.getStatusColor(emp.status)}">${this.formatStatus(emp.status)}</span>
+                </td>
+                <td>${this.formatDate(emp.hire_date)}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary btn-sm" onclick="employeeManager.editEmployee(${emp.id})"
+                                data-bs-toggle="tooltip" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="employeeManager.deleteEmployee(${emp.id})"
+                                data-bs-toggle="tooltip" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        
+        // Re-initialize tooltips
+        const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltips.forEach(tooltip => new bootstrap.Tooltip(tooltip));
+        
+        // Add event listeners for checkboxes
+        document.querySelectorAll('.employee-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', () => this.handleEmployeeSelect());
+        });
+    }
+    
+    getStatusColor(status) {
+        const colors = {
+            'active': 'success',
+            'inactive': 'secondary',
+            'on_leave': 'warning',
+            'terminated': 'danger'
+        };
+        return colors[status] || 'secondary';
+    }
+    
+    formatStatus(status) {
+        return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+    
+    formatDate(dateString) {
+        if (!dateString) return '-';
+        return new Date(dateString).toLocaleDateString();
+    }
+    
+    renderPagination(data) {
+        const controls = document.getElementById('paginationControls');
+        const info = document.getElementById('paginationInfo');
+        
+        // Update info
+        const start = (data.page - 1) * data.per_page + 1;
+        const end = Math.min(data.page * data.per_page, data.total);
+        info.textContent = `Showing ${start} to ${end} of ${data.total} entries`;
+        
+        // Generate pagination controls
+        let paginationHTML = '';
+        
+        // Previous button
+        paginationHTML += `
+            <li class="page-item ${!data.has_prev ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="employeeManager.changePage(${data.page - 1})">Previous</a>
+            </li>
+        `;
+        
+        // Page numbers
+        const startPage = Math.max(1, data.page - 2);
+        const endPage = Math.min(data.pages, data.page + 2);
+        
+        for (let i = startPage; i <= endPage; i++) {
+            paginationHTML += `
+                <li class="page-item ${i === data.page ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="employeeManager.changePage(${i})">${i}</a>
+                </li>
+            `;
+        }
+        
+        // Next button
+        paginationHTML += `
+            <li class="page-item ${!data.has_next ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="employeeManager.changePage(${data.page + 1})">Next</a>
+            </li>
+        `;
+        
+        controls.innerHTML = paginationHTML;
+    }
+    
+    changePage(page) {
+        if (page < 1 || page > Math.ceil(this.totalItems / this.itemsPerPage)) return;
+        this.currentPage = page;
+        this.loadEmployees();
+    }
+    
+    async handleAddEmployee(e) {
+        e.preventDefault();
+        
+        try {
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            const response = await fetch('/api/employees', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                this.showToast('Employee added successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('addEmployeeModal')).hide();
+                e.target.reset();
+                this.loadEmployees();
+            } else {
+                const error = await response.json();
+                this.showToast(error.error || 'Failed to add employee', 'error');
+            }
+        } catch (error) {
+            console.error('Error adding employee:', error);
+            this.showToast('Failed to add employee', 'error');
+        }
+    }
+    
+    async editEmployee(id) {
+        try {
+            const response = await fetch(`/api/employees/${id}`);
+            const employee = await response.json();
+            
+            // Populate edit form
+            document.getElementById('editEmployeeId').value = employee.id;
+            document.getElementById('editFirstName').value = employee.first_name;
+            document.getElementById('editLastName').value = employee.last_name;
+            // ... populate other fields
+            
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('editEmployeeModal')).show();
+        } catch (error) {
+            console.error('Error loading employee:', error);
+            this.showToast('Failed to load employee data', 'error');
+        }
+    }
+    
+    async deleteEmployee(id) {
+        if (!confirm('Are you sure you want to delete this employee?')) return;
+        
+        try {
+            const response = await fetch(`/api/employees/${id}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                this.showToast('Employee deleted successfully', 'success');
+                this.loadEmployees();
+            } else {
+                this.showToast('Failed to delete employee', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting employee:', error);
+            this.showToast('Failed to delete employee', 'error');
+        }
+    }
+    
+    handleSelectAll(e) {
+        const checkboxes = document.querySelectorAll('.employee-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = e.target.checked;
+        });
+        this.handleEmployeeSelect();
+    }
+    
+    handleEmployeeSelect() {
+        const checkboxes = document.querySelectorAll('.employee-checkbox:checked');
+        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+        
+        this.selectedEmployees = new Set(Array.from(checkboxes).map(cb => cb.value));
+        bulkDeleteBtn.disabled = this.selectedEmployees.size === 0;
+    }
+    
+    async handleBulkDelete() {
+        if (this.selectedEmployees.size === 0) return;
+        
+        if (!confirm(`Are you sure you want to delete ${this.selectedEmployees.size} employees?`)) return;
+        
+        try {
+            const response = await fetch('/api/employees/bulk', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'delete',
+                    employee_ids: Array.from(this.selectedEmployees).map(id => parseInt(id))
+                })
+            });
+            
+            if (response.ok) {
+                this.showToast('Employees deleted successfully', 'success');
+                this.selectedEmployees.clear();
+                document.getElementById('bulkDeleteBtn').disabled = true;
+                this.loadEmployees();
+            } else {
+                const error = await response.json();
+                this.showToast(error.error || 'Failed to delete employees', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting employees:', error);
+            this.showToast('Failed to delete employees', 'error');
+        }
+    }
+    showToast(message, type = 'success') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.role = 'alert';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        // Remove toast after showing
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+    }
+    

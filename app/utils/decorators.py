@@ -1,60 +1,69 @@
-# ============================================================================
-# File: app/utils/decorators.py
-# Authentication and Authorization Decorators
-# ============================================================================
+"""
+Custom decorators for People360
+"""
 
 from functools import wraps
-from flask import jsonify, g
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models.models import User
+from flask import abort, flash, redirect, url_for
+from flask_login import current_user
 
-def role_required(*allowed_roles):
-    """
-    Decorator to check if user has required role
-    Usage: @role_required('admin', 'manager')
-    """
+def admin_required(f):
+    """Decorator to require admin role"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Please log in to access this page.', 'error')
+            return redirect(url_for('auth.login'))
+        
+        if not current_user.has_role('admin'):
+            flash('You do not have permission to access this page.', 'error')
+            abort(403)
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+def hr_required(f):
+    """Decorator to require HR access (admin or hr_manager)"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Please log in to access this page.', 'error')
+            return redirect(url_for('auth.login'))
+        
+        if not current_user.can_access_hr():
+            flash('You do not have permission to access HR features.', 'error')
+            abort(403)
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+def crm_required(f):
+    """Decorator to require CRM access (admin, sales_manager, or support_agent)"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Please log in to access this page.', 'error')
+            return redirect(url_for('auth.login'))
+        
+        if not current_user.can_access_crm():
+            flash('You do not have permission to access CRM features.', 'error')
+            abort(403)
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+def role_required(*roles):
+    """Decorator to require specific roles"""
     def decorator(f):
         @wraps(f)
-        @jwt_required()
         def decorated_function(*args, **kwargs):
-            current_user_id = get_jwt_identity()
-            user = User.query.get(current_user_id)
+            if not current_user.is_authenticated:
+                flash('Please log in to access this page.', 'error')
+                return redirect(url_for('auth.login'))
             
-            if not user or not user.is_active:
-                return jsonify({'message': 'User account is inactive'}), 403
+            if not current_user.has_any_role(*roles):
+                flash(f'You need one of these roles: {", ".join(roles)}.', 'error')
+                abort(403)
             
-            if user.role not in allowed_roles:
-                return jsonify({'message': 'Access forbidden. Required roles: ' + ', '.join(allowed_roles)}), 403
-            
-            g.current_user = user
             return f(*args, **kwargs)
         return decorated_function
     return decorator
-
-def employee_or_manager_required(f):
-    """
-    Decorator that allows employees to access their own data or managers/admins to access any data
-    """
-    @wraps(f)
-    @jwt_required()
-    def decorated_function(employee_id=None, *args, **kwargs):
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        
-        if not user or not user.is_active:
-            return jsonify({'message': 'User account is inactive'}), 403
-        
-        # Admins and managers can access any employee data
-        if user.role in ['admin', 'manager']:
-            g.current_user = user
-            return f(employee_id, *args, **kwargs)
-        
-        # Employees can only access their own data
-        if user.role == 'employee' and user.employee:
-            if employee_id and str(user.employee.id) != str(employee_id):
-                return jsonify({'message': 'Access forbidden'}), 403
-            g.current_user = user
-            return f(employee_id or user.employee.id, *args, **kwargs)
-        
-        return jsonify({'message': 'Access forbidden'}), 403
-    return decorated_function

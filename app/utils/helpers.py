@@ -1,63 +1,191 @@
-# ============================================================================
-# File: app/utils/helpers.py
-# Helper Functions
-# ============================================================================
+"""
+Helper functions for People360
+"""
 
-from datetime import datetime, timedelta
-import re
-import uuid
-import os
-from werkzeug.utils import secure_filename
+import random
+import string
+from datetime import datetime, date
+from flask import url_for
+
+def generate_id(prefix='', length=8):
+    """Generate a unique ID with optional prefix"""
+    chars = string.ascii_uppercase + string.digits
+    random_part = ''.join(random.choice(chars) for _ in range(length))
+    return f"{prefix}{random_part}" if prefix else random_part
 
 def generate_employee_id():
     """Generate unique employee ID"""
-    return f"EMP{str(uuid.uuid4())[:8].upper()}"
+    return generate_id('EMP', 6)
 
-def validate_email(email):
-    """Validate email format"""
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern, email) is not None
+def generate_customer_id():
+    """Generate unique customer ID"""
+    return generate_id('CUS', 6)
 
-def calculate_working_days(start_date, end_date):
-    """Calculate working days between two dates (excluding weekends)"""
-    if isinstance(start_date, str):
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-    if isinstance(end_date, str):
-        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-    
-    working_days = 0
-    current_date = start_date
-    
-    while current_date <= end_date:
-        if current_date.weekday() < 5:  # Monday = 0, Friday = 4
-            working_days += 1
-        current_date += timedelta(days=1)
-    
-    return working_days
+def generate_job_id():
+    """Generate unique job ID"""
+    return generate_id('JOB', 6)
 
-def calculate_overtime(clock_in, clock_out, regular_hours=8):
-    """Calculate overtime hours"""
-    if not clock_in or not clock_out:
-        return 0
-    
-    total_minutes = (clock_out - clock_in).total_seconds() / 60
-    total_hours = total_minutes / 60
-    
-    return max(0, total_hours - regular_hours)
+def generate_lead_id():
+    """Generate unique lead ID"""
+    return generate_id('LED', 6)
 
-def allowed_file(filename, allowed_extensions={'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+def generate_ticket_id():
+    """Generate unique ticket ID"""
+    return generate_id('TKT', 6)
 
-def save_uploaded_file(file, upload_folder='uploads'):
-    """Save uploaded file securely"""
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
-        filename = timestamp + filename
-        
-        os.makedirs(upload_folder, exist_ok=True)
-        filepath = os.path.join(upload_folder, filename)
-        file.save(filepath)
-        return filepath
-    return None
+def generate_application_id():
+    """Generate unique application ID"""
+    return generate_id('APP', 6)
+
+def format_currency(amount, currency='USD'):
+    """Format currency amount"""
+    if amount is None:
+        return 'N/A'
+    
+    symbols = {
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£',
+        'KES': 'KSh'
+    }
+    
+    symbol = symbols.get(currency, currency)
+    return f"{symbol}{amount:,.2f}"
+
+def calculate_age(birth_date):
+    """Calculate age from birth date"""
+    if not birth_date:
+        return None
+    
+    today = date.today()
+    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
+def get_avatar_url(user, size=50):
+    """Get avatar URL for user (placeholder implementation)"""
+    if user.avatar:
+        return url_for('static', filename=f'avatars/{user.avatar}')
+    
+    # Default avatar based on initials
+    initials = ''
+    if user.first_name and user.last_name:
+        initials = f"{user.first_name[0]}{user.last_name[0]}".upper()
+    elif user.username:
+        initials = user.username[:2].upper()
+    
+    # For now, return a placeholder URL - in production you might use a service like Gravatar
+    return f"https://ui-avatars.com/api/?name={initials}&size={size}&background=007bff&color=white"
+
+def format_phone(phone):
+    """Format phone number"""
+    if not phone:
+        return None
+    
+    # Remove all non-digit characters
+    digits = ''.join(filter(str.isdigit, phone))
+    
+    if len(digits) == 10:
+        return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    elif len(digits) == 11 and digits[0] == '1':
+        return f"+1 ({digits[1:4]}) {digits[4:7]}-{digits[7:]}"
+    else:
+        return phone  # Return original if can't format
+
+def truncate_text(text, length=100, suffix='...'):
+    """Truncate text to specified length"""
+    if not text or len(text) <= length:
+        return text
+    return text[:length].rsplit(' ', 1)[0] + suffix
+
+def get_priority_class(priority):
+    """Get CSS class for priority level"""
+    priority_classes = {
+        'low': 'success',
+        'medium': 'warning',
+        'high': 'danger',
+        'urgent': 'danger'
+    }
+    return priority_classes.get(priority, 'secondary')
+
+def get_status_class(status, status_type='default'):
+    """Get CSS class for various status types"""
+    if status_type == 'ticket':
+        status_classes = {
+            'open': 'primary',
+            'in_progress': 'warning',
+            'waiting': 'info',
+            'resolved': 'success',
+            'closed': 'secondary'
+        }
+    elif status_type == 'lead':
+        status_classes = {
+            'new': 'primary',
+            'qualified': 'info',
+            'proposal': 'warning',
+            'negotiation': 'warning',
+            'won': 'success',
+            'lost': 'danger'
+        }
+    elif status_type == 'employee':
+        status_classes = {
+            'active': 'success',
+            'inactive': 'warning',
+            'terminated': 'danger',
+            'on_leave': 'info'
+        }
+    else:
+        status_classes = {
+            'active': 'success',
+            'inactive': 'secondary',
+            'pending': 'warning',
+            'approved': 'success',
+            'rejected': 'danger'
+        }
+    
+    return status_classes.get(status, 'secondary')
+
+def paginate_query(query, page, per_page=10):
+    """Paginate a SQLAlchemy query"""
+    return query.paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False
+    )
+
+def safe_int(value, default=0):
+    """Safely convert value to integer"""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+def safe_float(value, default=0.0):
+    """Safely convert value to float"""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+def format_datetime(dt, format='%Y-%m-%d %H:%M'):
+    """Format datetime for display"""
+    if not dt:
+        return 'N/A'
+    return dt.strftime(format)
+
+def time_ago(dt):
+    """Get human-readable time ago string"""
+    if not dt:
+        return 'Never'
+    
+    now = datetime.utcnow()
+    diff = now - dt
+    
+    if diff.days > 0:
+        return f"{diff.days} day{'s' if diff.days != 1 else ''} ago"
+    elif diff.seconds > 3600:
+        hours = diff.seconds // 3600
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    elif diff.seconds > 60:
+        minutes = diff.seconds // 60
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    else:
+        return "Just now"
